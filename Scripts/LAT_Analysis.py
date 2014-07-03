@@ -53,6 +53,8 @@ class LAT_Analysis:
         os.chdir('..')
         tbin = []
         self.tbin = tbin
+        timebins = []
+        self.timebins = timebins
        
         times = [100, 1900,3700,5500,7300,9100, 10900, 12700, 14500]
         self.times = times
@@ -191,6 +193,8 @@ class LAT_Analysis:
                 print 'Our convergence is...'
                 print likeobj.getRetCode()
                 tbin.append(like)
+                timebins.append(t)
+                
             except:
                 print "Looks like there was an issue with this timebin."
                 pass
@@ -236,9 +240,9 @@ class LAT_Analysis:
                 index = Index_line.split(' ')[11]
                 index_error = Index_line.split(' ')[13]
                 if t == 0:
-                    data.append([self.times[t],self.tbin[t].flux('GRB'+self.Burst),self.tbin[t].fluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),index, index_error,self.RA,self.DEC,self.MET,self.Date])
+                    data.append([self.timebins[t],self.tbin[t].flux('GRB'+self.Burst),self.tbin[t].fluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),index, index_error,self.RA,self.DEC,self.MET,self.Date])
                 else:
-                    data.append([self.times[t],self.tbin[t].flux('GRB'+self.Burst),self.tbin[t].fluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),index, index_error])
+                    data.append([self.timebins[t],self.tbin[t].flux('GRB'+self.Burst),self.tbin[t].fluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),index, index_error])
             a.writerows(data)
         os.chdir('..')
 
