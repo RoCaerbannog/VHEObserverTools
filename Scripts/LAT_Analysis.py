@@ -29,9 +29,11 @@ class LAT_Analysis:
         os.chdir('GRB'+Burst)"""
         LD
         LF(Burst)
-        PH = str(LD.grb[Burst]['ph_file_name'])
+        home = os.getcwd()
+        self.home = home
+        PH = home+'/'+str(LD.grb[Burst]['ph_file_name'])
         self.PH = PH
-        SC = 'lat_spacecraft_merged.fits'
+        SC = home+'/'+'lat_spacecraft_merged.fits'
         self.SC = SC
         MET = float(LD.grb[Burst]['MET'])
         self.MET = MET
@@ -43,70 +45,98 @@ class LAT_Analysis:
     
     def Analyze(self):
         from GtApp import GtApp
-        from make2FGLxml import *
+        
         import pyLikelihood
         from UnbinnedAnalysis import *
-        
+        os.chdir('Scripts')
+        from make2FGLxml import *
+        os.chdir('..')
         tbin = []
         self.tbin = tbin
        
         times = [100, 1900,3700,5500,7300,9100, 10900, 12700, 14500]
         self.times = times
+        if os.path.exists('Analysis Files') == False:
+            os.mkdir('Analysis Files')
+        else:
+            pass
+        os.chdir('Analysis Files')
         for t in times:
+            filelist = [ f for f in os.listdir(".") ]
+            for f in filelist:
+                os.remove(f)
             
             try:
-                my_apps.filter['ra'] = self.RA
-                my_apps.filter['dec'] = self.DEC
-                my_apps.filter['rad'] = 15
-                my_apps.filter['emin'] = 100
-                my_apps.filter['emax'] = 300000
-                my_apps.filter['zmax'] = 100
+                try:
+                    my_apps.filter['ra'] = self.RA
+                    my_apps.filter['dec'] = self.DEC
+                    my_apps.filter['rad'] = 15
+                    my_apps.filter['emin'] = 100
+                    my_apps.filter['emax'] = 300000
+                    my_apps.filter['zmax'] = 100
                 
-                if  t == 100:
-                    print "Running gtselect. Extracting data from "+ str(t-100) +" to " +str(t)+ " seconds..."
-                    my_apps.filter['evclass'] = 0
-                    my_apps.filter['tmin'] = self.MET
-                    my_apps.filter['tmax'] = self.MET+t
-                else:
-                    print "Running gtselect. Extracting data from "+ str(t-1800) +" to " +str(t)+ " seconds..."
-                    my_apps.filter['evclass'] = 2
-                    my_apps.filter['tmin'] = self.MET + t - 1800
-                    my_apps.filter['tmax'] = self.MET + t
-                my_apps.filter['infile'] = self.PH
-                my_apps.filter['outfile'] = 'filtered.fits'
-                my_apps.filter.run()
+                
+                    if  t == 100:
+                        print "Running gtselect. Extracting data from "+ str(t-100) +" to " +str(t)+ " seconds..."
+                        my_apps.filter['evclass'] = 0
+                        my_apps.filter['tmin'] = self.MET
+                        my_apps.filter['tmax'] = self.MET+t
+                    else:
+                        print "Running gtselect. Extracting data from "+ str(t-1800) +" to " +str(t)+ " seconds..."
+                        my_apps.filter['evclass'] = 2
+                        my_apps.filter['tmin'] = self.MET + t - 1800
+                        my_apps.filter['tmax'] = self.MET + t
+                    my_apps.filter['infile'] = self.PH
+                    my_apps.filter['outfile'] = 'filtered.fits'
+                    my_apps.filter.run()
+                except:
+                        print "There was a problem with gtselect."
+                        raise
                 print "Running gtmaketime..."
-                my_apps.maketime['scfile'] = self.SC
-                my_apps.maketime['filter'] = '(DATA_QUAL>0)&&(LAT_CONFIG==1)'
-                my_apps.maketime['roicut'] = 'yes'
-                my_apps.maketime['evfile'] = 'filtered.fits'
-                my_apps.maketime['outfile'] = 'filtered_gti.fits'
-                my_apps.maketime['debug'] = True
-                my_apps.maketime.run()
+                try:
+                    my_apps.maketime['scfile'] = self.SC
+                    my_apps.maketime['filter'] = '(DATA_QUAL>0)&&(LAT_CONFIG==1)'
+                    my_apps.maketime['roicut'] = 'yes'
+                    my_apps.maketime['evfile'] = 'filtered.fits'
+                    my_apps.maketime['outfile'] = 'filtered_gti.fits'
+                    my_apps.maketime['debug'] = True
+                    my_apps.maketime.run()
+                except:
+                    print "There was a problem with gtmaketime. We were unable to complete selecting the good time intervals."
+                    raise
                 print "Running gtexpCube..."
-                my_apps.expCube['evfile'] = 'filtered_gti.fits'
-                my_apps.expCube['scfile'] = self.SC
-                my_apps.expCube['outfile'] = 'ltCube.fits'
-                my_apps.expCube['dcostheta'] = 0.025
-                my_apps.expCube['binsz'] = 1
-                my_apps.expCube.run()
+                try:
+                    my_apps.expCube['evfile'] = 'filtered_gti.fits'
+                    my_apps.expCube['scfile'] = self.SC
+                    my_apps.expCube['outfile'] = 'ltCube.fits'
+                    my_apps.expCube['dcostheta'] = 0.025
+                    my_apps.expCube['binsz'] = 1
+                    my_apps.expCube.run()
+                except:
+                    print "There was a problem with gtexpCube."
+                    raise
+
                 print "Running gtexpmap..."
-                my_apps.expMap['evfile'] = 'filtered_gti.fits'
-                my_apps.expMap['scfile'] = self.SC
-                my_apps.expMap['expcube'] ='ltCube.fits'
-                my_apps.expMap['outfile'] ='expMap.fits'
-                my_apps.expMap['irfs'] ='CALDB'
-                my_apps.expMap['srcrad'] = 25
-                my_apps.expMap['nlong'] = 120
-                my_apps.expMap['nlat'] = 120
-                my_apps.expMap['nenergies'] = 20
-                my_apps.expMap.run()
-                
+                try:
+                    my_apps.expMap['evfile'] = 'filtered_gti.fits'
+                    my_apps.expMap['scfile'] = self.SC
+                    my_apps.expMap['expcube'] ='ltCube.fits'
+                    my_apps.expMap['outfile'] ='expMap.fits'
+                    my_apps.expMap['irfs'] ='CALDB'
+                    my_apps.expMap['srcrad'] = 25
+                    my_apps.expMap['nlong'] = 120
+                    my_apps.expMap['nlat'] = 120
+                    my_apps.expMap['nenergies'] = 20
+                    my_apps.expMap.run()
+                except:
+                    print "There was a problem with gtexpmap."
+                    raise
+
                 print "Making source file and populating it with sources..."
-                gll_psc = 'background_files/gll_psc_v08.fit'
-                gll_iem = 'background_files/gll_iem_v05_rev1.fit'
-                iso_source = 'background_files/iso_source_v05_rev1.txt'
-                mymodel = srcList(gll_psc,'filtered.fits','model.xml')
+                gll_psc = self.home+'/background_files/gll_psc_v08.fit'
+                gll_iem = self.home+'/background_files/gll_iem_v05_rev1.fit'
+                iso_source = self.home+'/background_files/iso_source_v05_rev1.txt'
+                mymodel = srcList(gll_psc,'filtered_gti.fits','model.xml')
                 mymodel.makeModel(gll_iem, 'gll_iem_v05_rev1', iso_source, 'iso_source_v05_rev1', extDir = self.fssc_path+ '/refdata/fermi/pyBurstAnalysisGUI/templates')
                 print "Adding diffuse response..."
                 
@@ -164,7 +194,8 @@ class LAT_Analysis:
             except:
                 print "Looks like there was an issue with this timebin."
                 pass
-
+        
+        os.chdir('..')
     def plot_counts(self, timebin = 1):
         
         import matplotlib.pyplot as plt
@@ -175,7 +206,7 @@ class LAT_Analysis:
         plt.xlim((200,300000))
         sum_model = np.zeros_like(self.tbin[timebin]._srcCnts(self.tbin[timebin].sourceNames()[0]))
         for sourceName in self.tbin[timebin].sourceNames():
-            if SourceName == "GRB"+self.Burst
+            if sourceName == "GRB"+self.Burst:
                 sum_model = sum_model + self.tbin[timebin]._srcCnts(sourceName)
                 plt.loglog(E,self.tbin[timebin]._srcCnts(sourceName),label=sourceName[0:])
             else:
@@ -214,7 +245,10 @@ class LAT_Analysis:
     def VHE_Analysis(self, eblModel = 'Dominguez', instrument = 'VERITAS2' ,redshift = 0.34):
         from LC_VHE_timing import take_data
         
-        take_data( Burst = self.Burst, redshift =  self.redshit, instrument = self.instrument, eblModel = self.eblModel)
+        if os.path.isfile('GRBs/GRB'+self.Burst+'.csv') == True:
+            take_data( Burst = self.Burst, redshift =  self.redshit, instrument = self.instrument, eblModel = self.eblModel)
+        else:
+            print "It seems that either the GRBs folder does not exist or the csv file does not exist."
 
 
 
