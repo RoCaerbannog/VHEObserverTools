@@ -1,5 +1,7 @@
 *.pdf
 *.pyc
 *~
+Effective_Areas/VERITAS/*
+Effective_Areas/MAGIC/*
 
 .DS_Store
