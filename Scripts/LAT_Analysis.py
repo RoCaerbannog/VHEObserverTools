@@ -42,6 +42,7 @@ class LAT_Analysis:
         DEC = float(LD.grb[Burst]['DEC'])
         self.DEC = DEC
         date = str(LD.grb[Burst]['Date'])
+        self.date = date
     
     def Analyze(self):
         from GtApp import GtApp
@@ -198,7 +199,6 @@ class LAT_Analysis:
             except:
                 print "Looks like there was an issue with this timebin."
                 pass
-        
         os.chdir('..')
     def plot_counts(self, timebin = 1):
         
@@ -231,7 +231,7 @@ class LAT_Analysis:
         else:
             pass
         os.chdir('GRBs')
-        with open(self.Burst+'.csv', 'wb', newline='') as fp:
+        with open('GRB'+self.Burst+'.csv', 'wb') as fp:
             a = csv.writer(fp, delimiter=',')
             data = [['Time after trigger(s)','Photon Flux(counts/cm^2/s)', 'Photon Flux Error(counts/cm^2/s)', 'Energy Flux(MeV/cm^2/s)','Energy Flux Error(MeV/cm^2/s)','Index','Index Error','RA','DEC','MET','Date']]
             for t in range(len(self.tbin)):
@@ -239,18 +239,15 @@ class LAT_Analysis:
                 Index_line = GRB_DATA.split('\n')[3]
                 index = Index_line.split(' ')[11]
                 index_error = Index_line.split(' ')[13]
-                if t == 0:
-                    data.append([self.timebins[t],self.tbin[t].flux('GRB'+self.Burst),self.tbin[t].fluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),index, index_error,self.RA,self.DEC,self.MET,self.Date])
-                else:
-                    data.append([self.timebins[t],self.tbin[t].flux('GRB'+self.Burst),self.tbin[t].fluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),index, index_error])
+                data.append([self.timebins[t],self.tbin[t].flux('GRB'+self.Burst),self.tbin[t].fluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),self.tbin[t].energyFluxError('GRB'+self.Burst),index, index_error,self.RA,self.DEC,self.MET,self.date])
             a.writerows(data)
         os.chdir('..')
 
     def VHE_Analysis(self, eblModel = 'Dominguez', instrument = 'VERITAS2' ,redshift = 0.34):
-        from LC_VHE_timing import take_data
+        from VHE_Analysis import take_data
         
         if os.path.isfile('GRBs/GRB'+self.Burst+'.csv') == True:
-            take_data( Burst = self.Burst, redshift =  self.redshit, instrument = self.instrument, eblModel = self.eblModel)
+            take_data( Burst = self.Burst, redshift =  self.redshift, instrument = self.instrument, eblModel = self.eblModel)
         else:
             print "It seems that either the GRBs folder does not exist or the csv file does not exist."
 
