@@ -243,9 +243,11 @@ class LAT_Analysis:
             a.writerows(data)
         os.chdir('..')
 
-    def VHE_Analysis(self, eblModel = 'Dominguez', instrument = 'VERITAS2' ,redshift = 0.34):
+    def VHE_Analysis(self, eblModel = 'Dominguez', instrument = 'VERITAS2', redshift = 0.34):
         from VHE_Analysis import take_data
-        
+        eblModel = self.eblModel
+        instrument = self.instrument
+        redshift = self.redshift
         if os.path.isfile('GRBs/GRB'+self.Burst+'.csv') == True:
             take_data( Burst = self.Burst, redshift =  self.redshift, instrument = self.instrument, eblModel = self.eblModel)
         else:

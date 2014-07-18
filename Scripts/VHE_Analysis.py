@@ -60,27 +60,26 @@ The tool requires the burst name, eblModel, redshift, instrument, and zenith ang
 '''
 class take_data:
 
-	def __init__(self, Burst = 'GRB130427A', redshift = 0.34, eblModel = 'Dominguez', instrument = 'VERITAS2'):
+	def __init__(self, Burst = '130427A', redshift = 0.34, eblModel = 'Dominguez', instrument = 'VERITAS2'):
 		
 		#Although it is a bit unclear to me why, you have to put a self. before things so that the code can refer to that piece of code.
-		
+        
 		self.redshift = redshift
 		self.eblModel = eblModel
 		self.instrument = instrument
-		self.Burst = Burst
+		
+        
+		
 
 	# this finds the GRB file and reads it there is another file I created that will take txt files and convert it to a more friendly csv file 
-		
 		GRB = 'GRBs/'+ Burst +'.csv'
 		burst = asciitable.read(GRB, delimiter = ',')
 	
 	# Importing the data from the csv file.
-	
-		GC = [burst['RA'][1],burst['DEC'][1]]; self.GC = GC
+		GC = [burst['RA'][1], burst['DEC'][1]]
 		date = burst['Date'][1]
-		self.date = date
 		start_time = []; self.start_time = start_time
-		stop_time = [];  self.stop_time =stop_time
+		stop_time = []; self.stop_time = stop_time
 		for t in burst['Time after trigger(s)']:
 			if t == 100:
 				start_time.append(0)
@@ -88,7 +87,7 @@ class take_data:
 			else:
 				start_time.append(t - 1800)
 				stop_time.append(t)
-		
+        
 		PF = []; self.PF = PF
 		PF_err = []; self.PF_err = PF_err
 		for y in burst['Photon Flux(counts/cm^2/s)']:
@@ -102,49 +101,49 @@ class take_data:
 		self.PI_err = []
 		for p_1 in burst['Index Error']:
 			self.PI_err.append(p_1)
-		Flux_MeV = []; self.Flux_MeV = Flux_MeV
+		Flux_MeV = []
 		for E_1 in burst['Energy Flux(MeV/cm^2/s)']:
-			self.Flux_MeV.append(E_1)
-		Flux_MeV_error = []; self.Flux_MeV_error = Flux_MeV_error
+			Flux_MeV.append(E_1)
+		Flux_MeV_error = []
 		for E_e in burst['Energy Flux Error(MeV/cm^2/s)']:
-			self.Flux_MeV_error.append(E_e)
+			Flux_MeV_error.append(E_e)
 		
-			
-			
-		 
-		#photon index error calculator
+		
+		
+	 
+	#photon index error calculator
 		PIP, PIM = zip(*[(pi+pie, pi-pie) for pi, pie in zip(self.PI, self.PI_err)])
 		self.PIP = PIP; self.PIM = PIM
-			
 		
-		# these make new arrays. One is the center of each time bin and the other is the time between the center and edge of each time bin
+	
+	# these make new arrays. One is the center of each time bin and the other is the time between the center and edge of each time bin
 		time,time_err = zip(*[(((y-x)/2)+x,(y-x)/2) for x,y in zip(start_time, stop_time)])
 		self.time = time; self.time_err = time_err
-		# So we have all these time bins and for loops but it would be nice, say if we wanted the differential flux for a single time bin, to call a specific time bin
-		# well I was nice enough to do it for you
+	# So we have all these time bins and for loops but it would be nice, say if we wanted the differential flux for a single time bin, to call a specific time bin
+	# well I was nice enough to do it for you
 		time_bin = range(0, len(time), 1)
 		self.time_bin = time_bin
 
-		# This changes the Flux from the LAT from ergs to GeV 
-		Flux_GeV =  [int(x)/1000 for x in Flux_MeV]; self.Flux_GeV = Flux_GeV
+	# This changes the Flux from the LAT from ergs to GeV 
+		Flux_GeV =  [ x/1000 for x in Flux_MeV]; self.Flux_GeV = Flux_GeV
 		
-		Flux_GeV_error =  [int(x)/1000 for x in Flux_MeV_error]; self.Flux_GeV_error = Flux_GeV_error
-		# The effective energy range for the LAT data spans from 0.1 GeV to 100 GeV 
+		Flux_GeV_error =  [x/1000 * x for x in Flux_MeV_error]; self.Flux_GeV_error = Flux_GeV_error
+	# The effective energy range for the LAT data spans from 0.1 GeV to 100 GeV 
 		E2 =  100 # GeV
 		E1 = 0.1 # GeV
 
-		# This neat little formula saved me a bit of time. Rather than do the calculation and write a new csv file, this does the calculations for the Normalization values N0 here.
+	# This neat little formula saved me a bit of time. Rather than do the calculation and write a new csv file, this does the calculations for the Normalization values N0 here.
 		self.Norm = []; self.Norm_P = []; self.Norm_M = []
 		for F, F_err, I in zip(self.PF, self.PF_err, self.PI):
 			self.Norm.append(((F/(E2-E1))*((E2**(1+I)-E1**(1+I))/(1+I)))); 
 			self.Norm_P.append((((F+F_err)/(E2-E1))*((E2**(1+I)-E1**(1+I))/(1+I)))); 
 			self.Norm_M.append((((F-F_err)/(E2-E1))*((E2**(1+I)-E1**(1+I))/(1+I)))); 
-				
-		# This section figures out the zenith angle based on the time of day that the burst went off as well as the positions of the burst and observatory.
+			
+	# This section figures out the zenith angle based on the time of day that the burst went off as well as the positions of the burst and observatory.
 		tel = VHEtelescope(instrument = self.instrument, time = time_bin, GC = GC, date = date)
 		self.tel = tel
-		# A dictionary so that we can refer to specific time bins later
-		myVOT = {}; self.myVOT = myVOT
+	# A dictionary so that we can refer to specific time bins later
+	 	myVOT = {}; self.myVOT = myVOT
 		self.One_GeV = []
 		self.Four_GeV = []
 		self.One_TeV = []
@@ -154,7 +153,7 @@ class take_data:
 		# the nominal calculation. No errors involved
 		for tb, i, v, z in zip(time_bin, self.Norm, self.PI, tel.zenith):
 			myVOT['{}'.format(tb)] = VOT("custom", eMin = 0.001, emax = 100000, Nbins= 100000, redshift = self.redshift, eblModel = self.eblModel, instrument = self.instrument,
-					zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
+				    zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
 			redshift = self.redshift
 			
 			
@@ -199,7 +198,7 @@ class take_data:
 		
 		for tb, i, v, z in zip(time_bin, self.Norm_P, self.PI, tel.zenith):
 			myVOT_PFP['{}'.format(tb)] = VOT("custom", eMin = 0.001, emax = 100000, Nbins= 100000, redshift = self.redshift, eblModel = self.eblModel, instrument = self.instrument,
-					zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
+				    zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
 			
 			# makes a boolean array (Trues and Falses) of all the energies above the minimum safe energy range
 			mymask_p = (myVOT_PFP['{}'.format(tb)].VS.EBins > 10**myVOT_PFP['{}'.format(tb)].VR.EASummary['minSafeE'])
@@ -236,7 +235,7 @@ class take_data:
 			# only taking into account the difference in negative normalization error
 		for tb, i, v, z in zip(time_bin, self.Norm_M, self.PI, tel.zenith):
 			myVOT_PFM['{}'.format(tb)] = VOT("custom", eMin = 0.001, emax = 100000, Nbins= 100000, redshift = self.redshift, eblModel = self.eblModel, instrument = self.instrument,
-					zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
+				    zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
 			
 			# makes a boolean array (Trues and Falses) of all the energy bins depending on whether True if E > 10**self.VR.EASummary['minSafeE'] GeV
 			mymask_m =  (myVOT_PFM['{}'.format(tb)].VS.EBins > 10**myVOT_PFM['{}'.format(tb)].VR.EASummary['minSafeE'])
@@ -286,7 +285,7 @@ class take_data:
 		#positive photon index error and positive normalization error
 		for tb, i, v, z in zip(time_bin, self.Norm_P, self.PIP, tel.zenith):
 			myVOT_PIP['{}'.format(tb)] = VOT("custom", eMin = 0.001, emax = 100000, Nbins= 100000, redshift = self.redshift, eblModel = self.eblModel, instrument = self.instrument,
-					zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
+				    zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
 			self.index_p = v
 			# makes a boolean array (Trues and Falses) of all the energy bins True if E > 10**self.VR.EASummary['minSafeE'] GeV
 			mymask_pi = (myVOT_PIP['{}'.format(tb)].VS.EBins > 10**myVOT_PIP['{}'.format(tb)].VR.EASummary['minSafeE'])
@@ -322,7 +321,7 @@ class take_data:
 		# negative photon index error and normalization error
 		for tb, i, v, z in zip(time_bin, self.Norm_M, self.PIM, tel.zenith):
 			myVOT_PIM['{}'.format(tb)] = VOT("custom", eMin = 0.001, emax = 100000, Nbins= 100000, redshift = self.redshift, eblModel = self.eblModel, instrument = self.instrument,
-					zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
+				    zenith = z , spectralModel = 'PowerLaw', N0 = i, index = v, E0 = 1)
 			self.index_m = v
 			# makes a boolean array (Trues and Falses) of all the energy bins True if E > 10**self.VR.EASummary['minSafeE'] GeV
 			mymask_mi =  (myVOT_PIM['{}'.format(tb)].VS.EBins > 10**myVOT_PIM['{}'.format(tb)].VR.EASummary['minSafeE'])
@@ -347,7 +346,7 @@ class take_data:
 			self.crab_flux_mi.append(myVOT_PIM['{}'.format(tb)].VR.crabRate)
 			detTime_MI = np.interp([crabFlux_mi*0.01], myVOT_PIM['{}'.format(tb)].VR.SensCurve[:,0], myVOT_PIM['{}'.format(tb)].VR.SensCurve[:,1])*60
 			self.detTimes_mi.append(detTime_MI[0])
-
+	
 		
 		# Lots and lots of error calculations
 		One_GeV_M_error,Four_GeV_M_error, One_TeV_M_error = zip(*[((x-s),(y-t),(z-u)) for s,t,u,x,y,z in zip(self.One_GeV_M, self.Four_GeV_M, self.One_TeV_M, self.One_GeV, self.Four_GeV, self.One_TeV)])
@@ -357,7 +356,7 @@ class take_data:
 		One_GeV_P_error,Four_GeV_P_error, One_TeV_P_error = zip(*[((s-x),(t-y),(u-z)) for s,t,u,x,y,z in zip(self.One_GeV_M, self.Four_GeV_M, self.One_TeV_M, self.One_GeV, self.Four_GeV, self.One_TeV)])
 		
 		self.One_GeV_P_error = One_GeV_P_error; self.Four_GeV_P_error = Four_GeV_P_error; self.One_TeV_P_error = One_TeV_P_error
-			
+		
 		# percent error
 	def error(self, timebin = 1):
 		pp_error = (np.absolute(self.int_flux_pi[timebin] - self.int_flux[timebin])/self.int_flux[timebin])*100
@@ -371,10 +370,10 @@ class take_data:
 		#fig2ax2 = fig2.add_subplot(112)
 		fig2ax1.set_ylabel(r'Integral Flux [cm$^{-2}$ s$^{-1}$ ]', fontsize = '20')
 		fig2ax1.set_xlabel('Time [s]', fontsize = '20')
-		fig2ax1.set_xscale('log')
+		#fig2ax1.set_xscale('log')
 		fig2ax1.set_yscale('log')
-		msk1 = 2*np.array(self.time_err) > np.array(self.detTimes)
-		msk2 = 2*np.array(self.time_err) < np.array(self.detTimes)
+		msk1 = 2*np.array(self.time_err)/3600 > np.array(self.detTimes)
+		msk2 = 2*np.array(self.time_err)/3600 < np.array(self.detTimes)
 		l1 = fig2ax1.errorbar(np.array(self.time)[msk1], np.array(self.int_flux)[msk1], xerr = np.array(self.time_err)[msk1],
 			yerr = [np.array(self.merror)[msk1], np.array(self.perror)[msk1]], fmt='_', color = 'g', label = 'Detectable')
 		l11 = fig2ax1.errorbar(np.array(self.time)[msk2], np.array(self.int_flux)[msk2], xerr = np.array(self.time_err)[msk2],
@@ -451,7 +450,7 @@ class take_data:
 		fig2ax1 = fig2.add_subplot(111)
 		fig2ax1.set_ylabel(r'Differential Flux [cm$^{-2}$ s$^{-1}$ GeV$^{-1}$]')
 		fig2ax1.set_xlabel('Time [s]')
-		fig2ax1.set_xscale('log')
+		#fig2ax1.set_xscale('log')
 		fig2ax1.set_yscale('log')
 		timer = np.arange(1, 10000, 1)
 		x = 1 # 1 GeV
@@ -485,11 +484,11 @@ class take_data:
 		pyplot.show()
 			
 	def make_table(self, timebin = 6):
-		if 2*self.time_err[timebin] >= self.detTimes[timebin]:
+		if 2*self.time_err[timebin]/3600 >= self.detTimes[timebin]:
 			detection = 'Detectable'
 		else:
 			detection = 'Not Detectable'
-		if 2*self.time_err[timebin] >= self.detTimes_pi[timebin]:
+		if 2*self.time_err[timebin]/3600 >= self.detTimes_pi[timebin]:
 			detection_p = 'Detectable'
 		else:
 			detection_p = 'Not Detectable'

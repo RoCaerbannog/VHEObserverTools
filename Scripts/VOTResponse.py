@@ -31,6 +31,10 @@ class VOTResponse:
         fields and the default expected source spectrum (-4) is
         adequate for most sources at VHE.
 
+        'VERITAS2': same as VERITAS but with multivariate
+        interpolation in energy and zenith angle. You can pick any
+        zenith angle from 20 to 90.
+
         'HESS': This is an array of IACTs located in Nambia and
         sensitive from about 100 GeV to tens of TeV.  You can choose
         three zenith angles (20, 45 and 60).  The effective areas are
@@ -57,24 +61,28 @@ class VOTResponse:
 
 
         EAParamTemplates = {"VERITAS" : {"zenith":20, "azimuth":0, "noise":4.07},
+                            "VERITAS2" : {"zenith":20, "azimuth":0, "noise":4.07},
                             "CTA" : {"zenith":0, "azimuth":0, "noise":0},
                             "HESS" : {"zenith":20, "azimuth":0, "noise":0},
-                            "HAWC" : {"zenith":20, "azimuth":0, "noise":0}}
+                            "HESS2" : {"zenith":0, "azimuth":0, "noise":0},
+                            "HAWC" : {"zenith":20}}
         EffectiveAreas = {"VERITAS": self.loadVERITASEA,
+                          "VERITAS2": self.loadVERITASEA2,
                           "CTA": self.loadCTAEA,
                           "HESS": self.loadHESSEA,
+                          "HESS2": self.loadHESS2EA,
                           "HAWC": self.loadHAWCEA}
 
         try:
             checkParams(EAParamTemplates[instrument],pars, self.logger)
         except KeyError:
-            self.logger.critical("Unsupported instrument.")
+            self.logger.critical("Unsupported instrument template.")
             return
 
         try:
             self.EASummary,self.EACurve,self.SensCurve,self.EAFile,self.EATable,self.crabRate = EffectiveAreas[instrument](**pars)
         except KeyError:
-            self.logger.critical("Unsupported instrument.")
+            self.logger.critical("Unsupported instrument effective area.")
             return
     
     def interpolateEA(self, E, EA):
@@ -106,9 +114,22 @@ class VOTResponse:
         '''This loads a sensitivity curve for a specific instrument.  Note
         that I don't have a sensitivity curve for CTA yet.'''
 
-        if instrument == 'CTA' or instrument == 'HAWC':
-            self.logger.warning("Returning null detection times for CTA")
-            return np.array([[0.0001,0],[10.,0]])
+        if instrument == 'CTA':
+            self.logger.warning("Assuming 10 times better sensitivity than HESS for CTA!")
+            filename = "Effective_Areas/HESS/sensitivity.csv"
+            sensitivity = np.genfromtxt(filename,delimiter=",")
+            sensitivity[:,1] = 0.1*sensitivity[:,1]
+            return sensitivity
+        elif instrument == 'HAWC':
+            self.logger.warning("Assuming 1000 times worse sensitivity than HESS for HAWC!")
+            filename = "Effective_Areas/HESS/sensitivity.csv"
+            sensitivity = np.genfromtxt(filename,delimiter=",")
+            sensitivity[:,1] = 1000.*sensitivity[:,1]
+            return sensitivity
+        elif instrument == 'HESS2':
+            self.logger.warning("Assuming HESS sensitivity but using HESS2 effective areas!")
+            filename = "Effective_Areas/HESS/sensitivity.csv"
+            return np.genfromtxt(filename,delimiter=",")
         else:
             self.logger.warning("Time to detection assumes a Crab Nebula Spectrum.")
             filename = "Effective_Areas/"+instrument+"/sensitivity.csv"
@@ -159,6 +180,73 @@ class VOTResponse:
         return EASummary, EACurve_data, Sensitivity_data, filename, EAName, crabRate
 
 
+    def loadVERITASEA2(self, cuts = 'soft', **pars):
+
+        name = {'soft': "Effective_Areas/VERITAS/ea_Nov2010_na_ATM21_vegasv240rc1_7sam_050off_soft-1",
+                'medium': "Effective_Areas/VERITAS/ea_Nov2010_na_ATM21_vegasv240rc1_7sam_050off_med-1",
+                'hard': "Effective_Areas/VERITAS/ea_Nov2010_na_ATM21_vegasv240rc1_7sam_050off_hard-1"}
+
+        crabRate = 659.0
+        self.logger.warning("Using {} counts/hr as the rate from the Crab Nebula.".format(crabRate))
+        
+        filename = name[cuts] + ".summary.csv"
+        summary_data  = np.genfromtxt(filename, delimiter=",", unpack=True,
+                                      dtype=[('eanames', 'S50'),
+                                             ('minSafeE', 'float'),
+                                             ('maxSafeE', 'float'),
+                                             ('peakArea', 'float'),
+                                             ('threshold', 'float')])
+
+        zeniths = list({eaname.split('_')[4] for eaname in summary_data['eanames']})
+        zeniths.sort()
+        idx = np.searchsorted(np.float64(zeniths),pars['zenith'])
+        
+        print idx
+
+        EANames = ("EffectiveArea_Azimuth_" + str(pars["azimuth"]) + "_Zenith_" + zeniths[idx-1] + "_Noise_" + str(pars["noise"]),
+                   "EffectiveArea_Azimuth_" + str(pars["azimuth"]) + "_Zenith_" + zeniths[idx] + "_Noise_" + str(pars["noise"]))
+
+        array_mask = summary_data['eanames'] == EANames[0]
+        try:
+            EASummary = {'eaname': EANames[0],
+                         'minSafeE': ((summary_data['minSafeE'])[array_mask])[0] + 3,
+                         'maxSafeE': ((summary_data['maxSafeE'])[array_mask])[0] + 3,
+                         'peakArea': ((summary_data['peakArea'])[array_mask])[0] * 10000.,
+                         'threshold':((summary_data['threshold'])[array_mask])[0] * 1000.}
+        except IndexError:
+            self.logger.critical('Could not find that EA curve.')
+            return 0,0
+
+        EACurveFileNames = (name[cuts]+"/"+EANames[0]+".csv",name[cuts]+"/"+EANames[1]+".csv")
+        EACurves_data = [np.genfromtxt(EACurveFileNames[0],delimiter=","),np.genfromtxt(EACurveFileNames[1],delimiter=",")]
+
+        EACurves_data[0] = EACurves_data[0] + [3.,0.]
+        EACurves_data[0] = EACurves_data[0] * [1.,10000.]
+        EACurves_data[1] = EACurves_data[1] + [3.,0.]
+        EACurves_data[1] = EACurves_data[1] * [1.,10000.]
+
+        # Sometimes the length of one of the EA's is smaller than the other.
+        if(np.shape(EACurves_data[0]) != np.shape(EACurves_data[1])):
+            small_idx = np.argmin([np.shape(EACurve_data)[0] for EACurve_data in EACurves_data])
+            start_idx = np.argmax(EACurves_data[small_idx-1][:,0] == EACurves_data[small_idx][0,0])        
+
+            if start_idx > 0:
+                EACurves_data[small_idx] = np.insert(EACurves_data[small_idx],0,
+                                                     zip(EACurves_data[small_idx-1][:start_idx,0],np.zeros(start_idx)),axis=0)
+            else:
+                end_idx = np.shape(EACurves_data[small_idx-1][:,0])[0] - np.shape(EACurves_data[small_idx][:,0])[0]
+                EACurves_data[small_idx] = np.insert(EACurves_data[small_idx],np.shape(EACurves_data[small_idx])[0],
+                                                     zip(EACurves_data[small_idx-1][-end_idx:,0],np.zeros(end_idx)),axis=0)
+    
+        interpEA = np.array([[EACurve_data[0],np.interp(pars['zenith'],[zeniths[idx-1],zeniths[idx]],[EACurve_data[1],EACurves_data[1][i,1]])] 
+                             for i,EACurve_data in enumerate(EACurves_data[0])])
+
+        print "hello"
+
+        Sensitivity_data = self.loadSensitivity('VERITAS')
+
+        return EASummary, interpEA, Sensitivity_data, filename, EANames[0], crabRate
+
     def loadHESSEA(self, zenith = 20, **pars):
         
         '''This loads in the effective areas for HESS.  All units returned in
@@ -204,7 +292,38 @@ class VOTResponse:
         Sensitivity_data = self.loadSensitivity('HESS')
 
         return EASummary, EACurve_data, Sensitivity_data, EACurveFileName, EAName, crabRate
-                                                   
+
+    def loadHESS2EA(self, analysisChain=2,**pars):
+        
+        '''This loads in the effective areas for HESS2 (mono).  All units returned in
+        GeV and cm^2.  There is only one (unknown) zenith.'''
+        
+        crabRate = 2150.0
+        self.logger.warning('This EA is for demonstration purposes only.  All paramters (zenith etc.) are ignored.')
+        self.logger.warning("Using {} counts/hr as the rate from the Crab Nebula.".format(crabRate))
+
+        if(analysisChain == 2):
+            EAName = 'EA_1307.6003v1_Fig2_AC2'
+        else:
+            EAName = 'EA_1307.6003v1_Fig2_AC1'
+
+        EACurveFileName="Effective_Areas/HESS2/"+EAName+".csv"
+
+        EASummary = {'eaname': EAName,
+                     'minSafeE': np.log10(50.),
+                     'maxSafeE': np.log10(990.),
+                     'peakArea': 92000*10000.,
+                     'threshold': 50.}
+        
+        EACurve_data = np.genfromtxt(EACurveFileName,delimiter=",")
+        
+        EACurve_data[:,0] = EACurve_data[:,0] + 3.0
+        EACurve_data = EACurve_data * [1.,10000.]
+
+        Sensitivity_data = self.loadSensitivity('HESS2')
+
+        return EASummary, EACurve_data, Sensitivity_data, EACurveFileName, "EA_1307.6003v1_Fig2_AC2", crabRate
+
 
     def loadCTAEA(self, EACurveFileName="Effective_Areas/CTA/EA_1210.3503_Fig15_MPIK.csv", **pars):
 
@@ -240,9 +359,9 @@ class VOTResponse:
         '''This loads the effective area for HAWC.  All units returned in GeV
         and cm^2.'''
 
-        crabRate = 1000.
+        crabRate = 19.
 
-        theta_bins = ['0607','0708','0809''0910']
+        theta_bins = ['0607','0708','0809','0910']
         theta_bounds = [0.6,0.7,0.8,0.9,1.0]
 
         if trigger_rate == 'high':
@@ -270,14 +389,14 @@ class VOTResponse:
         EACurveFileName = "Effective_Areas/HAWC/" + EAName + ".csv"
         
         EASummary = {'eaname': EAName,
-                     'minSafeE': minEnergies[theta_bin],
-                     'maxSafeE': 100000.,
+                     'minSafeE': np.log10(minEnergies[theta_bin]),
+                     'maxSafeE': np.log10(99000.),
                      'peakArea': 1.0,
                      'threshold': 100.}
 
         EACurve_data = np.genfromtxt(EACurveFileName,delimiter=",")
         
-        EACurve_data[:,0] = np.log10(EACurve_data[:,0])
+        #EACurve_data[:,0] = np.log10(EACurve_data[:,0])+3.0
         EACurve_data = EACurve_data * [1.,10000.]
 
 

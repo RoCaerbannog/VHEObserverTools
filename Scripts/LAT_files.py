@@ -105,8 +105,10 @@ def LAT_Files(Name):
                                         #url_sc = 'http://fermi.gsfc.nasa.gov/ssc/observations/timeline/ft2/files/FERMI_POINTING_FINAL_0'+week+'_2013101_2013108_00.fits'
 
                                 ph_file_name = 'Fermi_ph_week_'+week+'.fits'
+                               
                                 LAT_DATA.grb[Name]['ph_file_name'] = 'LAT_Week_Files/'+ph_file_name
                                 sc_file_name = 'Fermi_sc_week_'+week+'.fits'
+                                
                                 LAT_DATA.grb[Name]['sc_file_name'] = 'LAT_Week_Files/'+sc_file_name
                                 if os.path.isfile(ph_file_name) == True:
                                         print 'The file for GRB'+Name+' is already in your directory.'
